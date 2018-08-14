@@ -2,6 +2,7 @@
 from PyQt4.QtCore import QObject
 from PyQt4.QtCore import QThread
 from PyQt4.QtCore import pyqtSignal
+from PyQt4.QtCore import pyqtSlot
 
 
 import serial
@@ -23,16 +24,17 @@ class Stm30Connection(QObject):
         self.newModbusEvent.emit(u"COM порт инициализирован")
         self.stmAddress = address
 
+    @pyqtSlot()
     def getState(self):
         try:
             concentration = self.master.execute(
-                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0, 2, 0, ">BBBB")
+                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x0, 0x2, data_format=">BBBB")
             threshold1 = self.master.execute(
-                self.stmAddress, cst.READ_HOLDING_REGISTERS, 2, 2, 0, ">BBBB")
+                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x2, 0x2, data_format=">BBBB")
             threshold2 = self.master.execute(
-                self.stmAddress, cst.READ_HOLDING_REGISTERS, 4, 2, 0, ">BBBB")
+                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x4, 0x2, data_format=">BBBB")
             state = self.master.execute(
-                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x23, 1, 0, ">BB")
+                self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x23, 0x1, data_format=">BB")
         except modbus_tk.exceptions.ModbusInvalidResponseError:
             self.newModbusEvent.emit(u"Ошибка связи")
             return None
@@ -43,21 +45,88 @@ class Stm30Connection(QObject):
         self.stateUpdated.emit([concentration, threshold1, threshold2, state])
         self.newModbusEvent.emit(u"Данные обновлены")
 
-    def setThreshold1(self):
+    @pyqtSlot(float, int)
+    def setThreshold1(self, threshold, bl_flag):
+        message = [0, 3] + self._convertFloatToBcd(threshold)
         try:
-            threshold_state = self.master.execute(
-                self.stmAddress, cst.WRITE_MULTIPLE_REGISTERS, 0x20, )
-        except:
-            pass
+            if self.master.execute(
+                    self.stmAddress,
+                    cst.WRITE_MULTIPLE_REGISTERS,
+                    0x20, data_format=">BBBBBB",
+                    output_value=message) == (0x20, 3):
+                self.newModbusEvent.emit(u"Порог 1 успешно установлен")
+            else:
+                self.newModbusEvent.emit(u"Ошибка установки порога")
+        except modbus_tk.exceptions.ModbusInvalidResponseError:
+            self.newModbusEvent.emit(u"Ошибка связи")
 
-    def setThreshold1(self, threshold_number, threshold_value, block_flag):
+        message = [0, 0x13, 0, bl_flag]
+        try:
+            if self.master.execute(
+                    self.stmAddress,
+                    cst.WRITE_MULTIPLE_REGISTERS,
+                    0x20, data_format=">BBBB",
+                    output_value=message) == (0x20, 3):
+                self.newModbusEvent.emit(u"Тип порога установлен")
+            else:
+                self.newModbusEvent.emit(u"Ошибка установки типа порога")
+
+        except modbus_tk.exceptions.ModbusInvalidResponseError:
+            self.newModbusEvent.emit(u"Ошибка связи")
+
+    @pyqtSlot(float, int)
+    def setThreshold2(self, threshold, bl_flag):
+        message = [0, 4] + self._convertFloatToBcd(threshold)
+        try:
+            if self.master.execute(
+                    self.stmAddress,
+                    cst.WRITE_MULTIPLE_REGISTERS,
+                    0x20, data_format=">BBBBBB",
+                    output_value=message) == (0x20, 3):
+                self.newModbusEvent.emit(u"Порог 2 успешно установлен")
+            else:
+                self.newModbusEvent.emit(u"Ошибка установки порога")
+        except modbus_tk.exceptions.ModbusInvalidResponseError:
+            self.newModbusEvent.emit(u"Ошибка связи")
+
+        message = [0, 0x14, 0, bl_flag]
+        try:
+            if self.master.execute(
+                    self.stmAddress,
+                    cst.WRITE_MULTIPLE_REGISTERS,
+                    0x20, data_format=">BBBB",
+                    output_value=message) == (0x20, 3):
+                self.newModbusEvent.emit(u"Тип порога установлен")
+            else:
+                self.newModbusEvent.emit(u"Ошибка установки типа порога")
+
+        except modbus_tk.exceptions.ModbusInvalidResponseError:
+            self.newModbusEvent.emit(u"Ошибка связи")
+
+    # Not implemented yet
+    @pyqtSlot()
+    def calibrateZero(self):
         pass
 
-    def calibrate(self, pgs_number, pgs_concentration):
+    @pyqtSlot()
+    def calibrateEnd(self):
         pass
 
+    @pyqtSlot(int)
     def setAddress(self, address):
-        pass
+        message = [0, 5] + self._convertFloatToBcd(address)
+        try:
+            if self.master.execute(
+                    self.stmAddress,
+                    cst.WRITE_MULTIPLE_REGISTERS,
+                    0x20, data_format=">BBBBBB",
+                    output_value=message) == (0x20, 3):
+                self.newModbusEvent.emit(u"Адрес газоанализатора изменён")
+            else:
+                self.newModbusEvent.emit(u"Ошибка установки адреса")
+
+        except modbus_tk.exceptions.ModbusInvalidResponseError:
+            self.newModbusEvent.emit(u"Ошибка связи")
 
     def _convertBcdToFloat(self, data):
         sign = 1 if data[0] < 128 else -1
@@ -78,8 +147,8 @@ class Stm30Connection(QObject):
 
     def _convertFloatToBcd(self, decimal):
         sign = 0 if decimal >= 0 else 1
-        point = len(str(decimal).split(".")[1])
-        decimal = decimal * (10 ** point)
+        point = len(str(decimal).split(".")[1]) if decimal % 1 != 0 else 0
+        decimal = int(decimal * (10 ** point))
         if len(str(decimal)) > 6:
             raise ValueError("Expected 6 or less digits in decimal, got {}"
                              .format(len(str(decimal))))
@@ -88,4 +157,5 @@ class Stm30Connection(QObject):
             rem = decimal % 100
             byte = ((rem // 10) << 4) + (rem % 10)
             bcd = [byte] + bcd
+            decimal = decimal // 100
         return [(sign << 7) + point] + bcd
