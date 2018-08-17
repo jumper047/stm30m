@@ -49,11 +49,12 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
         self.labelThreshold2.setText(
             u"Порог 2: " + str(data[2]) + u"% НКПР")
 
-    @pyqtSlot(str)
+    @pyqtSlot(str, int)
     def addModbusEvent(self, event, event_type):
-        event_types = {"w": "red", "n": "black", "s": "green"}
+        event_types = {"r": u"red", "b": u"black", "g": u"green"}
         self.textEditEventLog.insertHtml(
-            "<font color=\"{0}\">{1}</font>\n".format(event_types[enevt_type], event))
+            u"<font color=\"{0}\">{1}</font>\n".format(event_types[str(event_type)], event))
+        self.textEditEventLog.insertPlainText("\n")
 
     def _setThreshold(self):
         block_flag = 1 if self.checkBox.isChecked() else 0
