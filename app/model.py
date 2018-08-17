@@ -14,14 +14,14 @@ from modbus_tk import modbus_rtu
 
 class Stm30Connection(QObject):
 
-    newModbusEvent = pyqtSignal(str)
+    newModbusEvent = pyqtSignal(str, str)
     stateUpdated = pyqtSignal(object)
 
     def connectToAnalyzer(self, port, baudrate, address):
         self.master = modbus_rtu.RtuMaster(
             serial.Serial(port=port, baudrate=baudrate, bytesize=8, parity='N', stopbits=1, xonxoff=0))
         self.master.set_timeout(3.0)
-        self.newModbusEvent.emit(u"COM порт инициализирован")
+        self.newModbusEvent.emit(u"COM порт инициализирован", "b")
         self.stmAddress = address
 
     @pyqtSlot()
@@ -36,14 +36,14 @@ class Stm30Connection(QObject):
             state = self.master.execute(
                 self.stmAddress, cst.READ_HOLDING_REGISTERS, 0x23, 0x1, data_format=">BB")
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
             return None
         concentration = self._convertBcdToFloat(concentration)
         threshold1 = self._convertBcdToFloat(threshold1)
         threshold2 = self._convertBcdToFloat(threshold2)
         state = self._transcribeFlags(state)
         self.stateUpdated.emit([concentration, threshold1, threshold2, state])
-        self.newModbusEvent.emit(u"Данные обновлены")
+        self.newModbusEvent.emit(u"Данные обновлены", "b")
 
     @pyqtSlot(float, int)
     def setThreshold1(self, threshold, bl_flag):
@@ -54,11 +54,11 @@ class Stm30Connection(QObject):
                     cst.WRITE_MULTIPLE_REGISTERS,
                     0x20, data_format=">BBBBBB",
                     output_value=message) == (0x20, 3):
-                self.newModbusEvent.emit(u"Порог 1 успешно установлен")
+                self.newModbusEvent.emit(u"Порог 1 успешно установлен", "g")
             else:
-                self.newModbusEvent.emit(u"Ошибка установки порога")
+                self.newModbusEvent.emit(u"Ошибка установки порога", "r")
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
 
         message = [0, 0x13, 0, bl_flag]
         try:
@@ -67,12 +67,12 @@ class Stm30Connection(QObject):
                     cst.WRITE_MULTIPLE_REGISTERS,
                     0x20, data_format=">BBBB",
                     output_value=message) == (0x20, 3):
-                self.newModbusEvent.emit(u"Тип порога установлен")
+                self.newModbusEvent.emit(u"Тип порога установлен", "g")
             else:
-                self.newModbusEvent.emit(u"Ошибка установки типа порога")
+                self.newModbusEvent.emit(u"Ошибка установки типа порога", "r")
 
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
 
     @pyqtSlot(float, int)
     def setThreshold2(self, threshold, bl_flag):
@@ -83,11 +83,11 @@ class Stm30Connection(QObject):
                     cst.WRITE_MULTIPLE_REGISTERS,
                     0x20, data_format=">BBBBBB",
                     output_value=message) == (0x20, 3):
-                self.newModbusEvent.emit(u"Порог 2 успешно установлен")
+                self.newModbusEvent.emit(u"Порог 2 успешно установлен", "g")
             else:
-                self.newModbusEvent.emit(u"Ошибка установки порога")
+                self.newModbusEvent.emit(u"Ошибка установки порога", "r")
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
 
         message = [0, 0x14, 0, bl_flag]
         try:
@@ -96,12 +96,12 @@ class Stm30Connection(QObject):
                     cst.WRITE_MULTIPLE_REGISTERS,
                     0x20, data_format=">BBBB",
                     output_value=message) == (0x20, 3):
-                self.newModbusEvent.emit(u"Тип порога установлен")
+                self.newModbusEvent.emit(u"Тип порога установлен", "g")
             else:
-                self.newModbusEvent.emit(u"Ошибка установки типа порога")
+                self.newModbusEvent.emit(u"Ошибка установки типа порога", "r")
 
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
 
     # Not implemented yet
     @pyqtSlot()
@@ -121,12 +121,12 @@ class Stm30Connection(QObject):
                     cst.WRITE_MULTIPLE_REGISTERS,
                     0x20, data_format=">BBBBBB",
                     output_value=message) == (0x20, 3):
-                self.newModbusEvent.emit(u"Адрес газоанализатора изменён")
+                self.newModbusEvent.emit(u"Адрес газоанализатора изменён", "g")
             else:
-                self.newModbusEvent.emit(u"Ошибка установки адреса")
+                self.newModbusEvent.emit(u"Ошибка установки адреса", "r")
 
         except modbus_tk.exceptions.ModbusInvalidResponseError:
-            self.newModbusEvent.emit(u"Ошибка связи")
+            self.newModbusEvent.emit(u"Ошибка связи", "r")
 
     def _convertBcdToFloat(self, data):
         sign = 1 if data[0] < 128 else -1

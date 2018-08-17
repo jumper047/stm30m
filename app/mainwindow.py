@@ -15,7 +15,7 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
     calibrateZero = pyqtSignal(float)
     calibrateEnd = pyqtSignal(float)
     setAddress = pyqtSignal(int)
-    
+
     def __init__(self):
         super(Main, self).__init__()
         self.setupUi(self)
@@ -37,20 +37,24 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
         self.setAddress.connect(self.model.setAddress)
         self.model_thread.start()
         self.show()
-        	
-    @pyqtSlot(object)	
+
+    @pyqtSlot(object)
     def refreshView(self, data):
         self.labelAddress.setText(u"Адрес: " + "1")
         self.labelState.setText(u"Статус: " + data[3])
         self.labelConcentration.setText(
             u"Текущие показания: " + str(data[0]) + u"% НКПР")
-        self.labelThreshold1.setText(u"Порог 1: " + str(data[1]) + u"% НКПР")
-        self.labelThreshold2.setText(u"Порог 2: " + str(data[2]) + u"% НКПР")
+        self.labelThreshold1.setText(
+            u"Порог 1: " + str(data[1]) + u"% НКПР")
+        self.labelThreshold2.setText(
+            u"Порог 2: " + str(data[2]) + u"% НКПР")
 
     @pyqtSlot(str)
-    def addModbusEvent(self, event):
-        self.textEditEventLog.insertPlainText(event + "\n")    
-         
+    def addModbusEvent(self, event, event_type):
+        event_types = {"w": "red", "n": "black", "s": "green"}
+        self.textEditEventLog.insertHtml(
+            "<font color=\"{0}\">{1}</font>\n".format(event_types[enevt_type], event))
+
     def _setThreshold(self):
         block_flag = 1 if self.checkBox.isChecked() else 0
         threshold = float(self.lineEditThreshold.text())
@@ -58,13 +62,13 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
             self.setThreshold1.emit(threshold, block_flag)
         elif self.comboBoxThreshold.currentIndex() == 1:
             self.setThreshold2.emit(threshold, block_flag)
-    
+
     def _calibrate(self):
         pgs_concentrations = float(self.lineEditPGS.text())
         if self.comboBoxPGS.currentIndex() == 0:
             self.calibrateZero.emit(pgs_concentration)
         elif self.comboboxPGS.currentIndex() == 1:
             self.calibrateEnd.emit(pgs_concentration)
-    
+
     def _setAddress(self):
         self.setAddress.emit(int(self.lineEditAddress.text()))
