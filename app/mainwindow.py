@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from PyQt4 import uic
 from PyQt4.QtCore import QThread
+from PyQt4.QtCore import QTimer
 from PyQt4.QtCore import pyqtSignal
 from PyQt4.QtCore import pyqtSlot
 from app.model import Stm30Connection
+from app.about import WindowAbout
+from app.settings import WindowSettings
 
 Ui_MainWindow_main, QMainWindow_main = uic.loadUiType('app/mainwindow.ui')
 
@@ -20,13 +23,23 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
         super(Main, self).__init__()
         self.setupUi(self)
 
+        self.about = WindowAbout()
+        self.actionAbout.triggered.connect(self.about.show)
+
+        self.settings = WindowSettings()
+        self.actionSettings.triggered.connect(self.settings.show)
+        self.settings.settingsUpdated.connect(self.reconnect)
+
+        self.actionExit.triggered.connect(self.close)
+
         self.model = Stm30Connection()
         self.pushButtonRefreshData.clicked.connect(self.model.getState)
         self.model.stateUpdated.connect(self.refreshView)
         self.model.newModbusEvent.connect(self.addModbusEvent)
         self.model_thread = QThread()
         self.model.moveToThread(self.model_thread)
-        self.model.connectToAnalyzer("/dev/ttyXRUSB0", 9600, 1)
+        self.model.connectToAnalyzer(
+            self.settings.comPort, self.settings.comSpeed, self.settings.analyzerAddress)
         self.pushButtonAddress.clicked.connect(self._setAddress)
         self.pushButtonThreshold.clicked.connect(self._setThreshold)
         self.pushButtonCalibrate.clicked.connect(self._calibrate)
@@ -36,11 +49,28 @@ class Main(QMainWindow_main, Ui_MainWindow_main):
         self.calibrateEnd.connect(self.model.calibrateEnd)
         self.setAddress.connect(self.model.setAddress)
         self.model_thread.start()
+
+        self.updateTimer = QTimer()
+        self.updateTimer.timeout.connect(self.model.getState)
+        if self.settings.pollingAnalyzer:
+            self.updateTimer.start(20000)
+
         self.show()
+
+    @pyqtSlot()
+    def reconnect(self):
+        self.model.disconnect()
+        self.model.connectToAnalyzer(
+            self.settings.comPort, self.settings.comSpeed, self.settings.analyzerAddress)
+        if self.settings.pollingAnalyzer:
+            self.updateTimer.start(20000)
+        else:
+            self.updateTimer.stop()
 
     @pyqtSlot(object)
     def refreshView(self, data):
-        self.labelAddress.setText(u"Адрес: " + "1")
+        self.labelAddress.setText(
+            u"Адрес: " + str(self.settings.analyzerAddress))
         self.labelState.setText(u"Статус: " + data[3])
         self.labelConcentration.setText(
             u"Текущие показания: " + str(data[0]) + u"% НКПР")

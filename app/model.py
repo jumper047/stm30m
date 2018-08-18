@@ -24,6 +24,10 @@ class Stm30Connection(QObject):
         self.newModbusEvent.emit(u"COM порт инициализирован", "b")
         self.stmAddress = address
 
+    def disconnect(self):
+        self.master.close()
+        self.newModbusEvent.emit(u"Соединение разорвано", "r")
+
     @pyqtSlot()
     def getState(self):
         try:
